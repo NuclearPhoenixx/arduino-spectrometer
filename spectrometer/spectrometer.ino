@@ -1,17 +1,17 @@
 /*
- * Simple Arduino spectrometer.
- * Return all data serial in csv format ready to be saved.
- * Can be used to return relative or absolute values.
- */
-#include "Adafruit_AS726x.h"
+   Simple Arduino spectrometer.
+   Return all data serial CSV formatted and ready to be saved.
+   Can be used to return relative or absolute values.
+*/
+#include <AS726X.h>
 
 /* SETTINGS */
 #define INTERVAL 2000 //measurement interval in ms
 #define REL_VALUES true //true returns relative values, false absolute values
 #define DRV_LED true //turn on (true) / off (false) the driver LED
+#define MEASURE_TEMP true //additionally log sensor temperature
 
-//create ams library object
-Adafruit_AS726x ams;
+AS726X ams; //create ams library object
 
 void setup()
 {
@@ -19,22 +19,29 @@ void setup()
   pinMode(LED_BUILTIN, OUTPUT);
 
   //begin and make sure we can talk to the sensor
-  if(!ams.begin())
+  if (!ams.begin())
   {
     Serial.println("Error, no sensor!");
-    while(1);
+    while (1);
   }
 
-  ams.setIndicateCurrent(LIMIT_1MA); //set current for indicator LED 1mA
-  ams.indicateLED(false); //turn on indicator LED
-  
-  ams.setDrvCurrent(LIMIT_12MA5); //LIMIT_12MA5, LIMIT_25MA, LIMIT_50MA, or LIMIT_100MA
+  // 0,1,2,3 -> 1,2,4,8 mA
+  ams.setIndicatorCurrent(0); //set current for indicator LED 1mA
+  ams.enableIndicator(); //turn on indicator LED
+
+  //0,1,2,3 -> 12.5,25,50,100 mA
+  ams.setBulbCurrent(0); //set driver bulb current to lowest
 
   //control the driver led
-  if(DRV_LED) { ams.drvOn(); } else { ams.drvOff(); }
-  
-  ams.setConversionType(MODE_2); //MODE_0, MODE_1, MODE_2, ONE_SHOT
-  ams.setGain(GAIN_64X); //GAIN_1X, GAIN_3X7, GAIN_16X, or GAIN_64X
+  if (DRV_LED) {
+    ams.enableBulb();
+  } else {
+    ams.disableBulb();
+  }
+
+  // 0,1,2,3 -> VBGY, GYOR, all, One-Shot all
+  ams.setMeasurementMode(2); //continuous reading of all channels
+  ams.setGain(3); //0,1,2,3 -> 1x,3.7x,16x,64x
   ams.setIntegrationTime(50); //actual integration time will be time*2.8ms
 
   Serial.begin(57600); //start fast Serial
@@ -42,52 +49,61 @@ void setup()
 
 void loop()
 {
-  //buffer to hold calibrated values
-  float calibratedValues[AS726x_NUM_CHANNELS];
-  
-  //read the device temperature
-  uint8_t temp = ams.readTemperature();
-  
-  ams.startMeasurement(); //begin measurement
-  
-  //wait for the sensor to be ready
-  bool ready = false;
-  while(!ready)
+  String temperature = "";
+
+  if (MEASURE_TEMP)
   {
-    delay(5);
-    ready = ams.dataReady();
+    uint8_t temp = ams.getTemperature() + 273.15; //get sensor temperature in Kelvin
+    temperature = String(temp);
   }
 
-  //read the temperature corrected color channels
-  ams.readCalibratedValues(calibratedValues);
-  uint8_t arraySize = sizeof(calibratedValues)/sizeof(float);
+  ams.takeMeasurements(); //takeMeasurementsWithBulb();
 
-  if(REL_VALUES)
+  while (!ams.dataAvailable())
   {
-    float sumValue = 0;
-    
-    for(uint8_t i = 0; i < arraySize; i++) //add all the channel values
+    delay(5); //wait till data is ready
+  }
+
+  float calibratedValues[6]; //this will hold all (6) the channel data
+
+  calibratedValues[0] = ams.getCalibratedViolet();
+  calibratedValues[1] = ams.getCalibratedBlue();
+  calibratedValues[2] = ams.getCalibratedGreen();
+  calibratedValues[3] = ams.getCalibratedYellow();
+  calibratedValues[4] = ams.getCalibratedOrange();
+  calibratedValues[5] = ams.getCalibratedRed();
+
+  uint8_t array_size = 6; //sizeof(calibratedValues)/sizeof(float);
+
+  if (REL_VALUES)
+  {
+    float sum_value = 0;
+
+    for (uint8_t i = 0; i < array_size; i++) //add all the channel values
     {
-      sumValue += calibratedValues[i];
+      sum_value += calibratedValues[i];
     }
 
-    for(uint8_t i = 0; i < arraySize; i++) //compute the ratio of every channel
+    for (uint8_t i = 0; i < array_size; i++) //compute the ratio of every channel
     {
-      calibratedValues[i] /= sumValue;
+      calibratedValues[i] /= sum_value;
     }
   }
 
   // VBGYOR
-  for(uint8_t i = 0; i < arraySize; i++)
+  for (uint8_t i = 0; i < array_size; i++)
   {
-    Serial.print(calibratedValues[i]);
-    
-    if(i < arraySize - 1) //add comma and blank after every value except the last one
+    float channel_data = calibratedValues[i];
+    Serial.print(String(channel_data) + ",");
+
+    //add comma and blank after every value except the last one
+    if (i < array_size - 1 || MEASURE_TEMP)
     {
-      Serial.print(", ");
+      Serial.print(",");
     }
   }
 
+  Serial.print(temperature);
   Serial.println();
   delay(INTERVAL);
 }
