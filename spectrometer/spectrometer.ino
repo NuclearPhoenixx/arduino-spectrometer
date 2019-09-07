@@ -18,6 +18,8 @@ void setup()
   // initialize digital pin LED_BUILTIN as an output.
   pinMode(LED_BUILTIN, OUTPUT);
 
+  Serial.begin(57600); //start fast Serial
+
   //begin and make sure we can talk to the sensor
   if (!ams.begin())
   {
@@ -43,8 +45,6 @@ void setup()
   ams.setMeasurementMode(2); //continuous reading of all channels
   ams.setGain(3); //0,1,2,3 -> 1x,3.7x,16x,64x
   ams.setIntegrationTime(50); //actual integration time will be time*2.8ms
-
-  Serial.begin(57600); //start fast Serial
 }
 
 void loop()
@@ -58,12 +58,7 @@ void loop()
   }
 
   ams.takeMeasurements(); //takeMeasurementsWithBulb();
-
-  while (!ams.dataAvailable())
-  {
-    delay(5); //wait till data is ready
-  }
-
+  
   float calibratedValues[6]; //this will hold all (6) the channel data
 
   calibratedValues[0] = ams.getCalibratedViolet();
@@ -94,7 +89,7 @@ void loop()
   for (uint8_t i = 0; i < array_size; i++)
   {
     float channel_data = calibratedValues[i];
-    Serial.print(String(channel_data) + ",");
+    Serial.print(String(channel_data));
 
     //add comma and blank after every value except the last one
     if (i < array_size - 1 || MEASURE_TEMP)
