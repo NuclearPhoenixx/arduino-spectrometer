@@ -6,25 +6,21 @@
 #include <AS726X.h>
 
 /* SETTINGS */
-#define INTERVAL 2000 //measurement interval in ms
-#define REL_VALUES true //true returns relative values, false absolute values
-#define DRV_LED true //turn on (true) / off (false) the driver LED
-#define MEASURE_TEMP true //additionally log sensor temperature
+const uint16_t INTERVAL = 2000; //measurement interval in ms
+const bool REL_VALUES = true; //true returns relative values, false absolute values
+const bool DRV_LED = true; //turn on (true) / off (false) the driver LED
+const bool MEASURE_TEMP = true; //additionally log sensor temperature
 
 AS726X ams; //create ams library object
 
-void setup()
-{
-  // initialize digital pin LED_BUILTIN as an output.
-  pinMode(LED_BUILTIN, OUTPUT);
+void setup(){
+  pinMode(LED_BUILTIN, OUTPUT); // initialize digital pin LED_BUILTIN as an output.
 
   Serial.begin(57600); //start fast Serial
 
-  //begin and make sure we can talk to the sensor
-  if (!ams.begin())
-  {
+  if(!ams.begin()){ //begin and make sure we can talk to the sensor
     Serial.println("Error, no sensor!");
-    while (1);
+    while(true);
   }
 
   // 0,1,2,3 -> 1,2,4,8 mA
@@ -35,9 +31,9 @@ void setup()
   ams.setBulbCurrent(0); //set driver bulb current to lowest
 
   //control the driver led
-  if (DRV_LED) {
+  if(DRV_LED){
     ams.enableBulb();
-  } else {
+  }else{
     ams.disableBulb();
   }
 
@@ -49,7 +45,7 @@ void setup()
 
 void loop()
 {
-  String temperature = "";
+  String temperature;
 
   if (MEASURE_TEMP)
   {
@@ -58,8 +54,9 @@ void loop()
   }
 
   ams.takeMeasurements(); //takeMeasurementsWithBulb();
-  
-  float calibratedValues[6]; //this will hold all (6) the channel data
+
+  const uint8_t array_size = 6;
+  float calibratedValues[array_size]; //this will hold all (6) the channel data
 
   calibratedValues[0] = ams.getCalibratedViolet();
   calibratedValues[1] = ams.getCalibratedBlue();
@@ -68,31 +65,24 @@ void loop()
   calibratedValues[4] = ams.getCalibratedOrange();
   calibratedValues[5] = ams.getCalibratedRed();
 
-  uint8_t array_size = 6; //sizeof(calibratedValues)/sizeof(float);
-
-  if (REL_VALUES)
-  {
+  if(REL_VALUES){
     float sum_value = 0;
 
-    for (uint8_t i = 0; i < array_size; i++) //add all the channel values
-    {
+    for(uint8_t i=0; i<array_size; i++){ //add all the channel values
       sum_value += calibratedValues[i];
     }
 
-    for (uint8_t i = 0; i < array_size; i++) //compute the ratio of every channel
-    {
+    for(uint8_t i=0; i<array_size; i++){ //compute the ratio of every channel
       calibratedValues[i] /= sum_value;
     }
   }
 
   // VBGYOR
-  for (uint8_t i = 0; i < array_size; i++)
-  {
-    float channel_data = calibratedValues[i];
-    Serial.print(String(channel_data));
+  for (uint8_t i=0; i<array_size; i++){
+    Serial.print(String(calibratedValues[i]));
 
     //add comma and blank after every value except the last one
-    if (i < array_size - 1 || MEASURE_TEMP)
+    if (i < array_size-1 || MEASURE_TEMP)
     {
       Serial.print(",");
     }
