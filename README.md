@@ -15,3 +15,5 @@ Standard Serial Connection is established with a baud rate of 57600!
 ```
 V,B,G,Y,O,R(,temp)
 ```
+
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/J3J61GLR3G)
